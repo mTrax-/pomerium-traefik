@@ -1,0 +1,32 @@
+# See detailed configuration settings : https://www.pomerium.io/docs/reference/reference/
+authenticate_service_url: https://auth.domain.tld
+
+# identity provider settings : https://www.pomerium.io/docs/identity-providers.html
+idp_provider: google
+idp_provider_url: https://accounts.google.com
+idp_client_id: id.apps.googleusercontent.com
+idp_client_secret: secret
+idp_service_account: BASE64-encodedstring
+
+policy:
+  - from: https://auth.domain.tld
+    to: http://pomerium-auth-https
+
+policy:
+  - from: https://adguard.domain.tld
+    to: http://adguardhome
+    allowed_domains:
+      - domain.tld
+    #set_request_headers:
+      # https://www.blitter.se/utils/basic-authentication-header-generator/
+      #Authorization: Basic secret
+    #allow_websockets: true
+
+
+policy:
+  - from: https://traefik.domain.tld
+    to: https://reverse-proxy
+
+policy:
+  - from: https://portal.domain.tld
+    to: http://heimdall

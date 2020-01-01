@@ -1,0 +1,70 @@
+version: "3.4"
+
+services:
+  reverse-proxy:
+    image: traefik:latest
+    networks:
+      - traefik_public
+    command: --configFile=/etc/traefik/traefik-static.yaml
+    ports:
+      - 80:80
+      - 8080:8080
+      - 443:443
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /opt/github-docker/appdata/traefik:/etc/traefik
+    deploy:
+      labels:
+        # Dashboard
+        # Explicitly tell Traefik to expose this container
+        - traefik.enable=true
+        - traefik.http.routers.traefik.entrypoints=https
+        - traefik.http.routers.traefik.rule=Host(`traefik.domain.tld`)
+        - traefik.http.services.traefik.loadbalancer.server.port=8080
+        - traefik.http.routers.traefik.service=api@internal
+        - traefik.http.routers.traefik.tls.certresolver=gandi
+        # Authentication
+        #- traefik.http.routers.traefik.middlewares=pomerium-auth-https@docker
+            
+        # global redirect to https
+        - traefik.http.routers.http-catchall.rule=hostregexp(`{host:.+}`)
+        - traefik.http.routers.http-catchall.entrypoints=http
+        - traefik.http.routers.http-catchall.middlewares=redirect-to-https
+
+        # middleware redirect
+        - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+
+  pomerium-auth-https:
+    image: pomerium/pomerium:v0.5.2
+    ports:
+      - target: 443
+        published: 2443
+        protocol: tcp
+        mode: host
+    environment:
+      # Generate new secret keys. e.g. `head -c32 /dev/urandom | base64`
+      - "COOKIE_SECRET=jsucvA7JunzNgfsqmlkjjJMKJFdmsdklfjMLKjdfkja="
+      - POMERIUM_DEBUG=TRUE
+      - INSECURE_SERVER=TRUE
+    volumes:
+       - /etc/timezone:/etc/timezone:ro
+       - /opt/github-docker/appdata/pomerium/sso.yaml:/pomerium/config.yaml:ro
+    networks:
+      - traefik_public
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.pomerium-auth-https.entrypoints=https
+        - traefik.http.routers.pomerium-auth-https.rule=Host(`auth.domain.tld`)
+
+        - traefik.http.middlewares.pomerium-auth-https.forwardAuth.address=http://pomerium-auth-https:2443
+        - traefik.http.routers.pomerium-auth-https.middlewares=pomerium-auth-https@docker
+        - traefik.http.services.pomerium-auth-https.loadbalancer.server.port=443
+        - traefik.http.routers.pomerium-auth-https.tls.certresolver=gandi
+        #- traefik.http.middlewares.pomerium-auth-https.forwardauth.authResponseHeaders=X-Pomerium-Authenticated-User-Email,x-pomerium-authenticated-user-id,x-pomerium-authenticated-user-groups,x-pomerium-jwt-assertion
+        #- traefik.http.routers.pomerium-auth-https.tls
+
+networks:
+  traefik_public:
+    external: true
