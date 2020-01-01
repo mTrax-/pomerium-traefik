@@ -1,7 +1,3 @@
-# Traefik Static Configuration
-# Host Path: /opt/appdata/config/traefik/traefik-static.yaml
-# Internal Path: /etc/traefik/traefik-static.yaml
-
 global:
   checkNewVersion: true
 
